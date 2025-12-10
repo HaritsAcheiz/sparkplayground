@@ -16,7 +16,7 @@ services:
       - spark-network
 
   spark-master:
-    image: bitnami/spark:3.5.5-debian-12-r3
+    image: bitnamilegacy/spark:3.5.5-debian-12-r3
     container_name: spark-master
     environment:
       - SPARK_MODE=master
@@ -24,6 +24,9 @@ services:
       - SPARK_RPC_ENCRYPTION_ENABLED=no
       - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
       - SPARK_SSL_ENABLED=no
+      # Additional
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
     ports:
       - "8080:8080"
       - "7077:7077"
@@ -33,7 +36,7 @@ services:
       - spark-network
 
   spark-worker-1:
-    image: bitnami/spark:3.5.5-debian-12-r3
+    image: bitnamilegacy/spark:3.5.5-debian-12-r3
     container_name: spark-worker-1
     depends_on:
       - spark-master
@@ -46,13 +49,16 @@ services:
       - SPARK_RPC_ENCRYPTION_ENABLED=no
       - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
       - SPARK_SSL_ENABLED=no
+      # Additional
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
     volumes:
       - ./shared-data:/shared-data
     networks:
       - spark-network
 
   spark-worker-2:
-    image: bitnami/spark:3.5.5-debian-12-r3
+    image: bitnamilegacy/spark:3.5.5-debian-12-r3
     container_name: spark-worker-2
     depends_on:
       - spark-master
@@ -65,13 +71,41 @@ services:
       - SPARK_RPC_ENCRYPTION_ENABLED=no
       - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
       - SPARK_SSL_ENABLED=no
+      # Additional
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
     volumes:
       - ./shared-data:/shared-data
     networks:
       - spark-network
 
+  minioserver:
+    image: minio/minio:latest
+    ports:
+      - 9000:9000
+      - 9001:9001
+    container_name: minioserver
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    entrypoint: >
+      /bin/sh -c "
+      minio server /data --console-address ':9001' &
+      sleep 5;
+      tail -f /dev/null"
+    volumes:
+      - minio_data:/data
+    networks:
+      - spark-network
+
 volumes:
   postgres_data:
+  minio_data:
 
 networks:
   spark-network:
